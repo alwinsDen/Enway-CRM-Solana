@@ -13,7 +13,7 @@ async function main() {
     "9jXP33ikjYLzqnucmwT2X4syGTnxxoqTiHR9ecEJwZdo"
   );
   const connection = new web3.Connection("http://localhost:8899");
-  // create a borsh sturct constant
+  // create a borsh struct constant
   const movieInstructionLayout = borsh.struct([
     borsh.u8("variant"),
     borsh.str("title"),
@@ -22,11 +22,12 @@ async function main() {
   ]);
   // send the review to the contract deployed on the blockchain
   let buffer = Buffer.alloc(100);
+  let movieName = `BraveHeart${Math.random() * 1000}`
   //  encode the data
   movieInstructionLayout.encode(
     {
       variant: 0,
-      title: "BraveHeart",
+      title: movieName,
       rating: 5,
       description: "A great movie",
     },
@@ -34,7 +35,7 @@ async function main() {
   );
   buffer = buffer.slice(0, movieInstructionLayout.getSpan(buffer));
   const [pda] = await web3.PublicKey.findProgramAddress(
-    [publicUserKey.publicKey.toBuffer(), Buffer.from(`Test${Math.random()}`)],
+    [publicUserKey.publicKey.toBuffer(), Buffer.from(movieName)],
     program_id
   );
   // logging the PDA
