@@ -1,17 +1,14 @@
-<h1>Enway CRM Smart Contract</h1>
+# Enway CRM Smart Contract
 
-***
 <b>This is a project aimed at replicating a fully functional CRM (Customer relationship management) onto a program
 (smart contract) deployed on 
-the Solana blockchain.</b> 
-<br>
-<br>
+the Solana blockchain.</b>
+
 <i>Development: </i>
 <b>Solana Blockchain(solana-test-validator, solana_program,borsh_serializer), CLion IDE, WebStorm IDE, React(with 
 Phantom wallet)</b>
 
-***
-<h3>Build instructions</h3>
+## Build instructions
 Install <a href="https://docs.solana.com/cli/install-solana-cli-tools">Solana tool suite</a>
 <br>
 
