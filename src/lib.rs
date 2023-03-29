@@ -21,7 +21,12 @@ pub enum MovieInstruction {
         title: String,
         rating: u8,
         description: String,
-    }
+    },
+    UpdateMovieReview {
+        title: String,
+        rating: u8,
+        description: String,
+    },
 }
 
 // struct used to determine the parameters that define what needs to be saved in accounts.
@@ -58,6 +63,11 @@ impl MovieInstruction {
                 title: payload.title,
                 rating: payload.rating,
             },
+            1 => Self::UpdateMovieReview {
+                title: payload.title,
+                rating: payload.rating,
+                description: payload.description,
+            },
             _ => return Err(ProgramError::InvalidInstructionData)
         })
     }
@@ -81,7 +91,7 @@ pub fn add_movie_review(
     //verify transaction signer
     if !initializer.is_signer {
         msg!("Missing required signature!");
-        return Err(ProgramError::MissingRequiredSignature)
+        return Err(ProgramError::MissingRequiredSignature);
     }
 
     //derive PDA and check it matches the client
@@ -91,14 +101,14 @@ pub fn add_movie_review(
     //pda verification
     if pda != *pda_account.key {
         msg!("Invalid seeds for PDA creation");
-        return Err(ReviewError::InvalidPDA.into())
+        return Err(ReviewError::InvalidPDA.into());
     }
 
     // calculate the size of the incoming data
     let request_len = 1 + 1 + (4 + title.len()) + (4 + description.len());
     if request_len > 1000 {
         msg!("Data length is larger than 1000 bytes");
-        return Err(ReviewError::InvalidDataLength.into())
+        return Err(ReviewError::InvalidDataLength.into());
     }
 
     //maximum allowed data size
@@ -128,7 +138,7 @@ pub fn add_movie_review(
     //checking is the account is already initialized
     if account_data.is_initialized() {
         msg!("The account is already initilized");
-        return Err(ProgramError::AccountAlreadyInitialized)
+        return Err(ProgramError::AccountAlreadyInitialized);
     }
 
     account_data.title = (&title).to_string();
@@ -144,6 +154,37 @@ pub fn add_movie_review(
     // msg!("Adding the movie to blockchain");
     msg!("Title: {}",title);
     msg!("Description {}", description);
+    Ok(())
+}
+
+fn update_movie_review(
+    program_id: &Pubkey,
+    accounts: &[AccountInfo],
+    title: String,
+    rating: u8,
+    description: String,
+) -> ProgramResult {
+    msg!("Updating the exising review");
+    let account_info_iter = &mut accounts.iter();
+    let initializer = next_account_info(account_info_iter).unwrap();
+    let pda_account = next_account_info(account_info_iter).unwrap();
+
+    // unpack the incoming data
+    let mut account_data = try_from_slice_unchecked::<MovieAccountState>
+        (&pda_account.data.borrow()).unwrap();
+    let (pda, seeds) = Pubkey::find_program_address(
+        &[
+            initializer.key.as_ref(),
+            account_data.title.as_bytes()
+        ],
+        program_id);
+    //check for size
+    let update_len: usize = 1 + 1 + (4 + description.len() + account_data.title.len());
+    account_data.rating = rating;
+    account_data.description = description;
+    // now save the data
+    account_data.serialize(&mut &mut pda_account.data.borrow_mut()[..]).unwrap();
+    msg!("The data has been updated!!");
     Ok(())
 }
 
@@ -168,6 +209,9 @@ pub fn process_instruction(
     match instruction {
         MovieInstruction::AddMovieReview { description, title, rating } => {
             add_movie_review(program_id, accounts, title, rating, description)
+        }
+        MovieInstruction::UpdateMovieReview { description, title, rating } => {
+            update_movie_review(program_id, accounts, title, rating, description)
         }
     }
 }

@@ -38,7 +38,7 @@ async function main() {
         program_id
     );
     // logging the PDA
-    console.log(pda.toBase58());
+    // console.log(pda.toBase58());
     // transaction process
     const transaction = new web3.Transaction();
     const instruction = new web3.TransactionInstruction({
