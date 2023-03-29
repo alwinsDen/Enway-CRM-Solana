@@ -12,6 +12,8 @@ use solana_program::{
     borsh::try_from_slice_unchecked,
 };
 use std::convert::TryInto;
+use solana_program::program_pack::{IsInitialized, Sealed};
+use thiserror::Error;
 
 // define the enum for instruction data
 pub enum MovieInstruction {
@@ -23,13 +25,22 @@ pub enum MovieInstruction {
 }
 
 // struct used to determine the parameters that define what needs to be saved in accounts.
-
 #[derive(BorshSerialize, BorshDeserialize)]
 pub struct MovieAccountState {
     pub is_initialized: bool,
     pub rating: u8,
     pub title: String,
     pub description: String,
+}
+
+// impl for AccountState
+impl Sealed for MovieAccountState {}
+
+//sealed is Solana's implementation of Sized rust tract.
+impl IsInitialized for MovieAccountState {
+    fn is_initialized(&self) -> bool {
+        self.is_initialized
+    }
 }
 
 // create an impl off of MovieInstruction that parses the u8 instruction datatype
@@ -67,11 +78,31 @@ pub fn add_movie_review(
     let pda_account = next_account_info(account_info_iter).unwrap();
     let system_program = next_account_info(account_info_iter).unwrap();
 
+    //verify transaction signer
+    if !initializer.is_signer {
+        msg!("Missing required signature!");
+        return Err(ProgramError::MissingRequiredSignature)
+    }
+
     //derive PDA and check it matches the client
     let (pda, bump_seed) = Pubkey::find_program_address(&[initializer.key.as_ref(), title.as_bytes()
         .as_ref()], program_id);
-    // calculate the space and based-rent
-    let account_len = 1 + 1 + (4 + title.len()) + (4 + description.len());
+
+    //pda verification
+    if pda != *pda_account.key {
+        msg!("Invalid seeds for PDA creation");
+        return Err(ReviewError::InvalidPDA.into())
+    }
+
+    // calculate the size of the incoming data
+    let request_len = 1 + 1 + (4 + title.len()) + (4 + description.len());
+    if request_len > 1000 {
+        msg!("Data length is larger than 1000 bytes");
+        return Err(ReviewError::InvalidDataLength.into())
+    }
+
+    //maximum allowed data size
+    let account_len = 1000;
     // calculate the rent required
     let rent = Rent::get().unwrap();
     let rent_lamports = rent.minimum_balance(account_len);
@@ -93,6 +124,13 @@ pub fn add_movie_review(
 
     let mut account_data = try_from_slice_unchecked::<MovieAccountState>
         (&pda_account.data.borrow()).unwrap();
+
+    //checking is the account is already initialized
+    if account_data.is_initialized() {
+        msg!("The account is already initilized");
+        return Err(ProgramError::AccountAlreadyInitialized)
+    }
+
     account_data.title = (&title).to_string();
     account_data.rating = rating;
     account_data.description = (&description).to_string();
@@ -131,5 +169,28 @@ pub fn process_instruction(
         MovieInstruction::AddMovieReview { description, title, rating } => {
             add_movie_review(program_id, accounts, title, rating, description)
         }
+    }
+}
+
+//custom error section
+#[derive(Debug, Error)]
+pub enum ReviewError {
+    #[error("Account not initialized yet")]
+    UninitializedAccount,
+
+    #[error("PDA derived does not equal PDA passed in")]
+    InvalidPDA,
+
+    #[error("Input data exceeds max length")]
+    InvalidDataLength,
+
+    #[error("Rating greater than 5 or less than 1")]
+    InvalidRating,
+}
+
+//adding support for custom error in Solana
+impl From<ReviewError> for ProgramError {
+    fn from(value: ReviewError) -> Self {
+        ProgramError::Custom(value as u32)
     }
 }
