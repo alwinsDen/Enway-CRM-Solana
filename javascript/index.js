@@ -13,7 +13,7 @@ async function main() {
     const program_id = new web3.PublicKey(process.env.PROGRAM_KEY);
     const connection = new web3.Connection("http://localhost:8899");
     // create a borsh struct constant
-    const movieInstructionLayout = borsh.struct([
+    const opporInstructionLayout = borsh.struct([
         borsh.u8("variant"),
         borsh.str("title"),
         borsh.u8("rating"),
@@ -21,20 +21,20 @@ async function main() {
     ]);
     // send the review to the contract deployed on the blockchain
     let buffer = Buffer.alloc(100);
-    let movieName = `BraveHeart${Math.random() * 1000}`
+    let opporId = `${Math.random() * 1000000}`
     //  encode the data
-    movieInstructionLayout.encode(
+    opporInstructionLayout.encode(
         {
             variant: 0,
-            title: movieName,
+            title: opporId,
             rating: 5,
-            description: "A great movie",
+            description: "A new opportunity",
         },
         buffer
     );
-    buffer = buffer.slice(0, movieInstructionLayout.getSpan(buffer));
+    buffer = buffer.slice(0, opporInstructionLayout.getSpan(buffer));
     const [pda] = await web3.PublicKey.findProgramAddress(
-        [publicUserKey.publicKey.toBuffer(), Buffer.from(movieName)],
+        [publicUserKey.publicKey.toBuffer(), Buffer.from(opporId)],
         program_id
     );
     // logging the PDA
@@ -73,12 +73,13 @@ async function main() {
     );
     //fetch the data that has been sent to the network
     //fetch accounts
-    const search = ""
+    const search = "alwin"
     let accounts = await connection.getProgramAccounts(
         new web3.PublicKey(program_id),
         {
             dataSlice: {
-                offset: 2, length: 18
+                offset: 6,
+                length: 50
             },
             filters: search === "" ? [] : [
                 {
@@ -100,17 +101,17 @@ async function main() {
     accounts = accounts.map(account => account.pubkey)
     //get the paginated public keys as per a required limit
     let pageNo = 1;
-    let objectPerPage = 2;
+    let objectPerPage = 50;
     // paginated data
     const paginatedPublicKeys = accounts.slice(
         (pageNo - 1) * objectPerPage,
         pageNo * objectPerPage
     )
-    //
+
     let account_data = await connection.getMultipleAccountsInfo(paginatedPublicKeys);
     //deserialize accounts to get the data
     // account_data.map((acc_data,index)=>{
-    //     const {title, rating} = movieInstructionLayout.decode(acc_data.data)
+    //     const {title, rating} = opporInstructionLayout.decode(acc_data.data)
     //     console.log(title,rating)
     //     return 0
     // })
@@ -120,9 +121,10 @@ async function main() {
         borsh.str('title'),
         borsh.str('description'),
     ])
-    for (let i = 0; i < 2; i++) {
+    for (let i = 0; i < account_data.length; i++) {
         // retrieve the fields out of the account_data
-        const data = borshAccountSchema.decode(account_data[i].data)
+        const {title} = borshAccountSchema.decode(account_data[i].data)
+        console.log(title)
     }
 }
 

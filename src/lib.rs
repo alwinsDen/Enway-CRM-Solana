@@ -16,13 +16,13 @@ use solana_program::program_pack::{IsInitialized, Sealed};
 use thiserror::Error;
 
 // define the enum for instruction data
-pub enum MovieInstruction {
-    AddMovieReview {
+pub enum OpporunityDef {
+    AddNewOppotunity {
         title: String,
         rating: u8,
         description: String,
     },
-    UpdateMovieReview {
+    UpdateOpportunity {
         title: String,
         rating: u8,
         description: String,
@@ -31,7 +31,7 @@ pub enum MovieInstruction {
 
 // struct used to determine the parameters that define what needs to be saved in accounts.
 #[derive(BorshSerialize, BorshDeserialize)]
-pub struct MovieAccountState {
+pub struct OpporDataState {
     pub is_initialized: bool,
     pub rating: u8,
     pub title: String,
@@ -39,31 +39,31 @@ pub struct MovieAccountState {
 }
 
 // impl for AccountState
-impl Sealed for MovieAccountState {}
+impl Sealed for OpporDataState {}
 
 //sealed is Solana's implementation of Sized rust tract.
-impl IsInitialized for MovieAccountState {
+impl IsInitialized for OpporDataState {
     fn is_initialized(&self) -> bool {
         self.is_initialized
     }
 }
 
-// create an impl off of MovieInstruction that parses the u8 instruction datatype
-impl MovieInstruction {
+// create an impl off of OpporunityDef that parses the u8 instruction datatype
+impl OpporunityDef {
     pub fn unpack(input: &[u8]) -> Result<Self, ProgramError> {
         //split the first byte of the data
         let (&varient, rest) = input.split_first().ok_or(ProgramError::InvalidInstructionData)
             .unwrap();
         // `try_from_slice` is one of the implementations from the BorshDeserialization trait
-        let payload = MovieReviewPayload::try_from_slice(rest).unwrap();
-        // match the first byte and return the movie review sturct
+        let payload = OpporDataPayload::try_from_slice(rest).unwrap();
+        // match the first byte and return the opportunity data sturct
         Ok(match varient {
-            0 => Self::AddMovieReview {
+            0 => Self::AddNewOppotunity {
                 description: payload.description,
                 title: payload.title,
                 rating: payload.rating,
             },
-            1 => Self::UpdateMovieReview {
+            1 => Self::UpdateOpportunity {
                 title: payload.title,
                 rating: payload.rating,
                 description: payload.description,
@@ -73,8 +73,8 @@ impl MovieInstruction {
     }
 }
 
-// function to log and add it to the blockchain accounts the incoming movie data
-pub fn add_movie_review(
+// function to log and add it to the blockchain accounts the incoming opportunity data
+pub fn add_new_oppor(
     program_id: &Pubkey,
     accounts: &[AccountInfo],
     title: String,
@@ -126,13 +126,23 @@ pub fn add_movie_review(
             account_len.try_into().unwrap(),
             program_id,
         ),
-        &[initializer.clone(), pda_account.clone(), system_program.clone()],
-        &[&[initializer.key.as_ref(), title.as_bytes().as_ref(), &[bump_seed]]],
+        &[
+            initializer.clone(),
+            pda_account.clone(),
+            system_program.clone()
+        ],
+        &[
+            &[
+                initializer.key.as_ref(),
+                title.as_bytes().as_ref(),
+                &[bump_seed]
+            ]
+        ],
     ).expect("Invoking a new PDA failed.");
     msg!("PDA created: {}", pda);
     msg!("Unpacking the state account");
 
-    let mut account_data = try_from_slice_unchecked::<MovieAccountState>
+    let mut account_data = try_from_slice_unchecked::<OpporDataState>
         (&pda_account.data.borrow()).unwrap();
 
     //checking is the account is already initialized
@@ -151,13 +161,13 @@ pub fn add_movie_review(
     account_data.serialize(&mut &mut pda_account.data.borrow_mut()[..]).unwrap();
     msg!("state account serialized");
 
-    // msg!("Adding the movie to blockchain");
+    // msg!("Adding the opporunity to blockchain");
     msg!("Title: {}",title);
     msg!("Description {}", description);
     Ok(())
 }
 
-fn update_movie_review(
+fn update_oppor_data(
     program_id: &Pubkey,
     accounts: &[AccountInfo],
     title: String,
@@ -170,7 +180,7 @@ fn update_movie_review(
     let pda_account = next_account_info(account_info_iter).unwrap();
 
     // unpack the incoming data
-    let mut account_data = try_from_slice_unchecked::<MovieAccountState>
+    let mut account_data = try_from_slice_unchecked::<OpporDataState>
         (&pda_account.data.borrow()).unwrap();
     let (pda, seeds) = Pubkey::find_program_address(
         &[
@@ -190,7 +200,7 @@ fn update_movie_review(
 
 // here is the review payload
 #[derive(BorshDeserialize)]
-struct MovieReviewPayload {
+struct OpporDataPayload {
     title: String,
     rating: u8,
     description: String,
@@ -203,15 +213,15 @@ pub fn process_instruction(
     accounts: &[AccountInfo],
     instruction_data: &[u8],
 ) -> ProgramResult {
-    let instruction = MovieInstruction::unpack(instruction_data)
+    let instruction = OpporunityDef::unpack(instruction_data)
         .unwrap();
     // matching the outgoing instruction variant
     match instruction {
-        MovieInstruction::AddMovieReview { description, title, rating } => {
-            add_movie_review(program_id, accounts, title, rating, description)
+        OpporunityDef::AddNewOppotunity { description, title, rating } => {
+            add_new_oppor(program_id, accounts, title, rating, description)
         }
-        MovieInstruction::UpdateMovieReview { description, title, rating } => {
-            update_movie_review(program_id, accounts, title, rating, description)
+        OpporunityDef::UpdateOpportunity { description, title, rating } => {
+            update_oppor_data(program_id, accounts, title, rating, description)
         }
     }
 }
