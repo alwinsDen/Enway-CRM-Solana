@@ -18,14 +18,21 @@ use thiserror::Error;
 // define the enum for instruction data
 pub enum OpporunityDef {
     AddNewOppotunity {
+        //adding some common salesforce keys and vals
         title: String,
-        rating: u8,
-        description: String,
+        amount: u32,
+        stage: String,
+        account_name: String,
+        delivered: bool,
+        probability: u8,
     },
     UpdateOpportunity {
         title: String,
-        rating: u8,
-        description: String,
+        amount: u32,
+        stage: String,
+        account_name: String,
+        delivered: bool,
+        probability: u8,
     },
 }
 
@@ -33,9 +40,12 @@ pub enum OpporunityDef {
 #[derive(BorshSerialize, BorshDeserialize)]
 pub struct OpporDataState {
     pub is_initialized: bool,
-    pub rating: u8,
     pub title: String,
-    pub description: String,
+    pub amount: u32,
+    pub stage: String,
+    pub account_name: String,
+    pub delivered: bool,
+    pub probability: u8,
 }
 
 // impl for AccountState
@@ -54,19 +64,26 @@ impl OpporunityDef {
         //split the first byte of the data
         let (&varient, rest) = input.split_first().ok_or(ProgramError::InvalidInstructionData)
             .unwrap();
+        msg!("{:?}",varient);
         // `try_from_slice` is one of the implementations from the BorshDeserialization trait
         let payload = OpporDataPayload::try_from_slice(rest).unwrap();
         // match the first byte and return the opportunity data sturct
         Ok(match varient {
             0 => Self::AddNewOppotunity {
-                description: payload.description,
+                account_name: payload.account_name,
                 title: payload.title,
-                rating: payload.rating,
+                probability: payload.probability,
+                stage: payload.stage,
+                delivered: payload.delivered,
+                amount: payload.amount,
             },
             1 => Self::UpdateOpportunity {
+                account_name: payload.account_name,
                 title: payload.title,
-                rating: payload.rating,
-                description: payload.description,
+                probability: payload.probability,
+                stage: payload.stage,
+                delivered: payload.delivered,
+                amount: payload.amount,
             },
             _ => return Err(ProgramError::InvalidInstructionData)
         })
@@ -77,9 +94,12 @@ impl OpporunityDef {
 pub fn add_new_oppor(
     program_id: &Pubkey,
     accounts: &[AccountInfo],
+    account_name: String,
+    amount: u32,
+    delivered: bool,
+    probability: u8,
+    stage: String,
     title: String,
-    rating: u8,
-    description: String,
 ) -> ProgramResult {
     // get account iterator
     let account_info_iter = &mut accounts.iter();
@@ -105,7 +125,8 @@ pub fn add_new_oppor(
     }
 
     // calculate the size of the incoming data
-    let request_len = 1 + 1 + (4 + title.len()) + (4 + description.len());
+    let request_len = 1 + (4 + account_name.len()) + 4 + 1 + 1 + (4 + stage.len()) + (4 + title.len
+    ());
     if request_len > 1000 {
         msg!("Data length is larger than 1000 bytes");
         return Err(ReviewError::InvalidDataLength.into());
@@ -151,9 +172,12 @@ pub fn add_new_oppor(
         return Err(ProgramError::AccountAlreadyInitialized);
     }
 
+    account_data.account_name = (&account_name).to_string();
+    account_data.probability = probability;
+    account_data.stage = (&stage).to_string();
+    account_data.delivered = delivered;
+    account_data.amount = amount;
     account_data.title = (&title).to_string();
-    account_data.rating = rating;
-    account_data.description = (&description).to_string();
     account_data.is_initialized = true;
 
     // serialize the account
@@ -163,16 +187,19 @@ pub fn add_new_oppor(
 
     // msg!("Adding the opporunity to blockchain");
     msg!("Title: {}",title);
-    msg!("Description {}", description);
+    msg!("Amount added: {}", amount);
     Ok(())
 }
 
 fn update_oppor_data(
     program_id: &Pubkey,
     accounts: &[AccountInfo],
+    account_name: String,
+    amount: u32,
+    delivered: bool,
+    probability: u8,
+    stage: String,
     title: String,
-    rating: u8,
-    description: String,
 ) -> ProgramResult {
     msg!("Updating the exising review");
     let account_info_iter = &mut accounts.iter();
@@ -189,9 +216,14 @@ fn update_oppor_data(
         ],
         program_id);
     //check for size
-    let update_len: usize = 1 + 1 + (4 + description.len() + account_data.title.len());
-    account_data.rating = rating;
-    account_data.description = description;
+    let update_len: usize = 1 + (4 + account_name.len()) + 4 + 1 + 1 + (4 + stage.len()) + (4 + title.len
+    ());
+    account_data.account_name = (&account_name).to_string();
+    account_data.probability = probability;
+    account_data.stage = (&stage).to_string();
+    account_data.delivered = delivered;
+    account_data.amount = amount;
+    account_data.title = title;
     // now save the data
     account_data.serialize(&mut &mut pda_account.data.borrow_mut()[..]).unwrap();
     msg!("The data has been updated!!");
@@ -201,9 +233,12 @@ fn update_oppor_data(
 // here is the review payload
 #[derive(BorshDeserialize)]
 struct OpporDataPayload {
-    title: String,
-    rating: u8,
-    description: String,
+    pub title: String,
+    pub account_name: String,
+    pub amount: u32,
+    pub delivered: bool,
+    pub probability: u8,
+    pub stage: String,
 }
 
 // hers is the entrypoint!
@@ -217,11 +252,35 @@ pub fn process_instruction(
         .unwrap();
     // matching the outgoing instruction variant
     match instruction {
-        OpporunityDef::AddNewOppotunity { description, title, rating } => {
-            add_new_oppor(program_id, accounts, title, rating, description)
+        OpporunityDef::AddNewOppotunity {
+            account_name,
+            amount,
+            delivered,
+            probability,
+            stage,
+            title
+        } => {
+            add_new_oppor(program_id,
+                          accounts,
+                          account_name,
+                          amount,
+                          delivered,
+                          probability,
+                          stage,
+                          title,
+            )
         }
-        OpporunityDef::UpdateOpportunity { description, title, rating } => {
-            update_oppor_data(program_id, accounts, title, rating, description)
+        OpporunityDef::UpdateOpportunity { account_name, amount, delivered, probability, stage, title }
+        => {
+            update_oppor_data(program_id,
+                              accounts,
+                              account_name,
+                              amount,
+                              delivered,
+                              probability,
+                              stage,
+                              title,
+            )
         }
     }
 }

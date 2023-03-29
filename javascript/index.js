@@ -15,20 +15,26 @@ async function main() {
     // create a borsh struct constant
     const opporInstructionLayout = borsh.struct([
         borsh.u8("variant"),
-        borsh.str("title"),
-        borsh.u8("rating"),
-        borsh.str("description"),
+        borsh.str("account_name"),
+        borsh.u32("amount"),
+        borsh.bool("delivered"),
+        borsh.u8("probability"),
+        borsh.str("stage"),
+        borsh.str("title")
     ]);
     // send the review to the contract deployed on the blockchain
     let buffer = Buffer.alloc(100);
-    let opporId = `${Math.random() * 1000000}`
+    let opporId = `${Math.random() * 1000}`
     //  encode the data
     opporInstructionLayout.encode(
         {
             variant: 0,
             title: opporId,
-            rating: 5,
-            description: "A new opportunity",
+            account_name: "Wild West",
+            amount: 23434,
+            delivered: false,
+            probability: 3,
+            stage: "In Pipeline",
         },
         buffer
     );
@@ -117,9 +123,12 @@ async function main() {
     // })
     const borshAccountSchema = borsh.struct([
         borsh.bool('is_initialized'),
-        borsh.u8('rating'),
-        borsh.str('title'),
-        borsh.str('description'),
+        borsh.str("title"),
+        borsh.u32("amount"),
+        borsh.str("stage"),
+        borsh.str("account_name"),
+        borsh.bool("delivered"),
+        borsh.u8("probability"),
     ])
     for (let i = 0; i < account_data.length; i++) {
         // retrieve the fields out of the account_data
