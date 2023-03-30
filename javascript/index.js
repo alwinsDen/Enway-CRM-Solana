@@ -23,7 +23,7 @@ async function main() {
         borsh.str("title")
     ]);
     // send the review to the contract deployed on the blockchain
-    let buffer = Buffer.alloc(100);
+    let buffer = Buffer.alloc(1000);
     let opporId = `${Math.random() * 1000}`
     //  encode the data
     opporInstructionLayout.encode(
